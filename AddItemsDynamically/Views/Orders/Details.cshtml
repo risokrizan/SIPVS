@@ -35,6 +35,35 @@
         <dd>
             @Html.DisplayFor(model => model.Created)
         </dd>
+
+<h1> Order Items: </h1>
+<table class="table">
+    <thead>
+        <tr>
+            <th>
+               Product Name:
+            </th>
+            <th>
+               Quantity: 
+            </th>
+        </tr>
+    </thead>
+    <tbody>
+ @foreach (var item in Model.Items) {
+    <tr>
+        <td>
+            @Html.DisplayFor(modelItem => item.ProductName)
+        </td>
+       
+        <td>
+            @Html.DisplayFor(modelItem => item.Quantity)
+        </td>
+    </tr>
+        }
+    </tbody>
+</table>
+       
+
     </dl>
 </div>
 <div>

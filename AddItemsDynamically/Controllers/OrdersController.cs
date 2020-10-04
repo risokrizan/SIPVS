@@ -3,16 +3,24 @@ using AddItemsDynamically.Models;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using System;
+using Microsoft.AspNetCore.Http;
+using System.IO;
+using System.Text;
 using System.Linq;
 using System.Threading.Tasks;
+using SIPVS.Data;
+using System.Xml;
+using System.Xml.Schema;
+using System.Collections.Generic;
 
 namespace AddItemsDynamically.Controllers
 {
     public class OrdersController : Controller
     {
-        private readonly ApplicationDbContext _context;
+        private readonly IOrderService _context;
 
-        public OrdersController(ApplicationDbContext context)
+
+        public OrdersController(IOrderService context)
         {
             _context = context;
         }
@@ -20,25 +28,18 @@ namespace AddItemsDynamically.Controllers
         // GET: Orders
         public async Task<IActionResult> Index()
         {
-            return View(await _context.Order.Include(t=>t.Items).ToListAsync());
+            return View(_context.FindAll());
         }
 
         // GET: Orders/Details/5
-        public async Task<IActionResult> Details(int? id)
+        public async Task<IActionResult> Details(int id)
         {
-            if (id == null)
-            {
+            var result = _context.FindOne(id);
+            Console.Write(result);
+            if (result != default)
+                return View(result);
+            else
                 return NotFound();
-            }
-
-            var order = await _context.Order.Include(t => t.Items)
-                .FirstOrDefaultAsync(m => m.Id == id);
-            if (order == null)
-            {
-                return NotFound();
-            }
-
-            return View(order);
         }
 
         // GET: Orders/Create
@@ -59,15 +60,13 @@ namespace AddItemsDynamically.Controllers
             if (ModelState.IsValid)
             {
                 order.Created = DateTime.UtcNow;
-                _context.Add(order);
-                await _context.SaveChangesAsync();
+                _context.Insert(order);
                 return RedirectToAction(nameof(Index));
             }
             return View(order);
         }
 
         [HttpPost]
-        [ValidateAntiForgeryToken]
         public async Task<ActionResult> AddOrderItem([Bind("Items")] Order order)
         {
             order.Items.Add(new OrderItem());
@@ -75,14 +74,10 @@ namespace AddItemsDynamically.Controllers
         }
 
         // GET: Orders/Edit/5
-        public async Task<IActionResult> Edit(int? id)
+        public async Task<IActionResult> Edit(int id)
         {
-            if (id == null)
-            {
-                return NotFound();
-            }
 
-            var order = await _context.Order.FindAsync(id);
+            var order = _context.FindOne(id);
             if (order == null)
             {
                 return NotFound();
@@ -94,9 +89,9 @@ namespace AddItemsDynamically.Controllers
         // To protect from overposting attacks, please enable the specific properties you want to bind to, for 
         // more details see http://go.microsoft.com/fwlink/?LinkId=317598.
         [HttpPost]
-        [ValidateAntiForgeryToken]
-        public async Task<IActionResult> Edit(int id, [Bind("Id,Name,IsUrgent,Created")] Order order)
+        public async Task<IActionResult> Edit(int id, [Bind("Id,Name,IsUrgent,Created,Items")] Order order)
         {
+            Console.WriteLine(order.ToString());
             if (id != order.Id)
             {
                 return NotFound();
@@ -107,7 +102,6 @@ namespace AddItemsDynamically.Controllers
                 try
                 {
                     _context.Update(order);
-                    await _context.SaveChangesAsync();
                 }
                 catch (DbUpdateConcurrencyException)
                 {
@@ -126,15 +120,11 @@ namespace AddItemsDynamically.Controllers
         }
 
         // GET: Orders/Delete/5
-        public async Task<IActionResult> Delete(int? id)
+        public async Task<IActionResult> Delete(int id)
         {
-            if (id == null)
-            {
-                return NotFound();
-            }
 
-            var order = await _context.Order.Include(t => t.Items)
-                .FirstOrDefaultAsync(m => m.Id == id);
+            var order = _context.FindOne(id);
+
             if (order == null)
             {
                 return NotFound();
@@ -148,15 +138,90 @@ namespace AddItemsDynamically.Controllers
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> DeleteConfirmed(int id)
         {
-            var order = await _context.Order.Include(t => t.Items).FirstOrDefaultAsync(t=>t.Id == id);
-            _context.Order.Remove(order);
-            await _context.SaveChangesAsync();
+            var order = _context.Delete(id);
             return RedirectToAction(nameof(Index));
         }
 
+        public IActionResult ExportXML(int id)
+        {
+            var result = _context.FindOne(id);
+            System.Xml.Serialization.XmlSerializer writer =
+            new System.Xml.Serialization.XmlSerializer(typeof(Order));
+            var stream = new MemoryStream();
+            writer.Serialize(stream, result);
+
+            return File(stream.ToArray(), "application/xml", "export.xml");
+        }
+        public Stream ExportXMLstream(int id)
+        {
+            var result = _context.FindOne(id);
+            System.Xml.Serialization.XmlSerializer writer =
+            new System.Xml.Serialization.XmlSerializer(typeof(Order));
+            var stream = new MemoryStream();
+            writer.Serialize(stream, result);
+
+            return stream;
+        }
+
+        public async Task<IActionResult> ValidateXML(int id)
+        {
+            XmlReaderSettings xmlSettings = new XmlReaderSettings();
+            xmlSettings.Schemas.Add("http://www.my.example.com/xml/orders", "order.xsd");
+            xmlSettings.ValidationType = ValidationType.Schema;
+            xmlSettings.ValidationEventHandler += new ValidationEventHandler(SettingsValidationEventHandler);
+            XmlReader orders = XmlReader.Create(ExportXMLstream(id), xmlSettings);
+            Console.WriteLine(orders);
+            return View(orders);
+        }
+        public static void SettingsValidationEventHandler(object sender, ValidationEventArgs e)
+        {
+            if (e.Severity == XmlSeverityType.Warning)
+            {
+
+                Console.Write("WARNING: ");
+                Console.WriteLine(e.Message);
+            }
+            else if (e.Severity == XmlSeverityType.Error)
+            {
+                Console.Write("ERROR: ");
+                Console.WriteLine(e.Message);
+            }
+        }
+
+        [HttpPost]
+        [Route("[controller]/fileUpload/{id}")]
+        public async Task<IActionResult> OnPostUploadAsync(List<IFormFile> files, int id)
+        {
+            long size = files.Sum(f => f.Length);
+
+            foreach (var formFile in files)
+            {
+                if (formFile.Length > 0)
+                {
+                    var filePath = Path.GetTempFileName();
+
+                    using (var stream = System.IO.File.Create(filePath))
+                    {
+                        await formFile.CopyToAsync(stream);
+                    }
+                }
+            }
+
+            // Process uploaded files
+            // Don't rely on or trust the FileName property without validation.
+
+            return Ok(new { count = files.Count, size });
+        }
+
+
         private bool OrderExists(int id)
         {
-            return _context.Order.Any(e => e.Id == id);
+            var result = _context.FindOne(id);
+            if (result.Id != null)
+                return true;
+            else
+                return false;
+
         }
     }
 }

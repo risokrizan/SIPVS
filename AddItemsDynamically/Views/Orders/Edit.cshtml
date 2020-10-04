@@ -27,6 +27,34 @@
                 </div>
             </div>
             <div class="form-group">
+                <h1> Order Items: </h1>
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>
+                                Product Name:
+                            </th>
+                            <th>
+                                Quantity: 
+                            </th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var item in Model.Items) {
+                            <tr>
+                                <td>
+                                    @Html.EditorFor(modelItem => item.ProductName)
+                                </td>
+                                
+                                <td>
+                                    @Html.EditorFor(modelItem => item.Quantity)
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+            <div class="form-group">
                 <input type="submit" value="Save" class="btn btn-default" />
             </div>
         </form>

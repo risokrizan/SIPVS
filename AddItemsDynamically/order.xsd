@@ -1,0 +1,31 @@
+﻿
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+		   targetNamespace="http://www.my.example.com/xml/orders"
+		   xmlns="http://www.my.example.com/xml/orders"
+                   attributeFormDefault="unqualified" 
+		   elementFormDefault="qualified">
+
+		<xs:element name="orders" type="orderList"/>
+
+		<xs:complexType name="orderList">
+			<xs:sequence>
+				<xs:element name="order" type="orderDetails" maxOccurs="unbounded"/>
+			</xs:sequence>
+			<xs:attribute name="id" type="xs:string" use="required"/>
+		</xs:complexType>
+		<xs:complexType name="orderItem">
+			<xs:sequence>
+				<xs:element type="xs:string" name="Id"/>
+				<xs:element type="xs:string" name="ProductName"/>
+				<xs:element type="xs:int" name="Quantity"/>
+			</xs:sequence>
+		</xs:complexType>
+		<xs:complexType name="orderDetails">
+			<xs:sequence>
+				<xs:element type="xs:string" name="Id"/>
+				<xs:element type="xs:boolean" name="isUrgent"/>
+				<xs:element type="xs:date" name="Created"/>
+				<xs:element type="orderItem" name="Items" maxOccurs="unbounded"/> 
+			</xs:sequence>
+		</xs:complexType>
+</xs:schema>
