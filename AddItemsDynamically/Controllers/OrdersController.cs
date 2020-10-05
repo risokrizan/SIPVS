@@ -147,9 +147,10 @@ namespace AddItemsDynamically.Controllers
             var result = _context.FindOne(id);
             System.Xml.Serialization.XmlSerializer writer =
             new System.Xml.Serialization.XmlSerializer(typeof(Order));
+            System.Xml.Serialization.XmlSerializerNamespaces ns = new System.Xml.Serialization.XmlSerializerNamespaces();
+            ns.Add("orderxml", "http://www.my.example.com/xml/order");
             var stream = new MemoryStream();
-            writer.Serialize(stream, result);
-
+            writer.Serialize(stream, result, ns);
             return File(stream.ToArray(), "application/xml", "export.xml");
         }
         public Stream ExportXMLstream(int id)
@@ -169,8 +170,7 @@ namespace AddItemsDynamically.Controllers
             xmlSettings.Schemas.Add("http://www.my.example.com/xml/orders", "order.xsd");
             xmlSettings.ValidationType = ValidationType.Schema;
             xmlSettings.ValidationEventHandler += new ValidationEventHandler(SettingsValidationEventHandler);
-            XmlReader orders = XmlReader.Create(ExportXMLstream(id), xmlSettings);
-            Console.WriteLine(orders);
+            XmlReader orders = XmlReader.Create("export.xml", xmlSettings);
             return View(orders);
         }
         public static void SettingsValidationEventHandler(object sender, ValidationEventArgs e)
